@@ -142,6 +142,7 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	public void start(TelegramBotConfig telegramBotConfig) throws IllegalStateException
 	{
+		HttpClient.init(telegramBotConfig);
 		startPolling(telegramBotConfig);
 	}
 	
@@ -152,6 +153,7 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	public void startAsync(final TelegramBotConfig telegramBotConfig) throws IllegalStateException
 	{
+		HttpClient.init(telegramBotConfig);
 		new Thread(() -> startPolling(telegramBotConfig)).start();
 	}
 	
@@ -162,7 +164,6 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	private void startPolling(TelegramBotConfig telegramBotConfig)
 	{
-		HttpClient.init(telegramBotConfig);
 
 		Integer offset = null;
 		int timeout = telegramBotConfig.getPollingTimeoutInSeconds();

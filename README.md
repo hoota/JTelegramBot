@@ -25,7 +25,7 @@ TelegramBot library supports full functionality of Telegram Bot API 2.1 and it c
         <dependency>
             <groupId>com.github.hoota</groupId>
             <artifactId>JTelegramBot</artifactId>
-            <version>1.1.0</version>
+            <version>1.1.1</version>
         </dependency>
 
 Other options will be added later.
