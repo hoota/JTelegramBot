@@ -24,7 +24,28 @@
 
 package io.fouad.jtb.core.builders;
 
-import io.fouad.jtb.core.beans.*;
+import io.fouad.jtb.core.beans.InlineKeyboardMarkup;
+import io.fouad.jtb.core.beans.InlineQueryResult;
+import io.fouad.jtb.core.beans.InlineQueryResultArticle;
+import io.fouad.jtb.core.beans.InlineQueryResultAudio;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedAudio;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedDocument;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedGif;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedMpeg4Gif;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedPhoto;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedSticker;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedVideo;
+import io.fouad.jtb.core.beans.InlineQueryResultCachedVoice;
+import io.fouad.jtb.core.beans.InlineQueryResultContact;
+import io.fouad.jtb.core.beans.InlineQueryResultDocument;
+import io.fouad.jtb.core.beans.InlineQueryResultGif;
+import io.fouad.jtb.core.beans.InlineQueryResultLocation;
+import io.fouad.jtb.core.beans.InlineQueryResultMpeg4Gif;
+import io.fouad.jtb.core.beans.InlineQueryResultPhoto;
+import io.fouad.jtb.core.beans.InlineQueryResultVenue;
+import io.fouad.jtb.core.beans.InlineQueryResultVideo;
+import io.fouad.jtb.core.beans.InlineQueryResultVoice;
+import io.fouad.jtb.core.beans.InputMessageContent;
 import io.fouad.jtb.core.enums.ResultDocumentMimeType;
 import io.fouad.jtb.core.enums.ResultVideoMimeType;
 
@@ -916,7 +937,7 @@ public class InlineQueryResultBuilder
 		}
 		
 		/**
-		 * 	Mime type of the content of video url, TEXT_HTML (“text/html”) or VIDEO_MP4 (“video/mp4”).
+		 * 	Mime type of the content of video url, TEXT_HTML ("text/html") or VIDEO_MP4 ("video/mp4").
 		 *
 		 * @param mimeType the MIME type
 		 */
@@ -1401,7 +1422,7 @@ public class InlineQueryResultBuilder
 		}
 		
 		/**
-		 * Sets mime type of the content of the file, either “application/pdf” or “application/zip”.
+		 * Sets mime type of the content of the file, either "application/pdf" or "application/zip".
 		 *
 		 * @param mimeType the mime type
 		 */

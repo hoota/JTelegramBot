@@ -24,12 +24,12 @@
 
 package io.fouad.jtb.core.builders;
 
-import io.fouad.jtb.core.enums.ParseMode;
 import io.fouad.jtb.core.beans.InputContactMessageContent;
 import io.fouad.jtb.core.beans.InputLocationMessageContent;
 import io.fouad.jtb.core.beans.InputMessageContent;
 import io.fouad.jtb.core.beans.InputTextMessageContent;
 import io.fouad.jtb.core.beans.InputVenueMessageContent;
+import io.fouad.jtb.core.enums.ParseMode;
 
 /**
  * A builder class to build one of the following 4 types:

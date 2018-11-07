@@ -24,38 +24,49 @@
 
 package io.fouad.jtb.core.utils;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
+import java.util.TimeZone;
 
 /**
  * Utility class to handle conversions between JSON and Java object and vice versa.
  */
 public class JsonUtils
 {
+	public static final ObjectMapper mapper = new ObjectMapper();
+
+	static {
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+		mapper.configure(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS, false);
+		mapper.enable(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
+		mapper.enable(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
+		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+		mapper.setTimeZone(TimeZone.getTimeZone("GMT"));
+	}
+
 	public static <T> T toJavaObject(String json, Class<T> clazz) throws IOException
 	{
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.enable(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
 		return mapper.readValue(json, clazz);
 	}
 	
 	public static <T, R> T toJavaObject(String json, TypeReference typeReference) throws IOException
 	{
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.enable(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
 		return mapper.readValue(json, typeReference);
 	}
 	
 	public static String toJson(Object javaObject) throws IOException
 	{
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.setSerializationInclusion(Include.NON_NULL);
-		mapper.enable(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
 		return mapper.writeValueAsString(javaObject);
 	}
 }

@@ -26,11 +26,34 @@ package io.fouad.jtb.core;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.fouad.jtb.core.TelegramBotConfig.TelegramBotConfigBuilder;
-import io.fouad.jtb.core.beans.*;
-import io.fouad.jtb.core.enums.*;
-import io.fouad.jtb.core.exceptions.*;
-import io.fouad.jtb.core.utils.*;
-import io.fouad.jtb.core.utils.HttpClient.*;
+import io.fouad.jtb.core.beans.BooleanOrMessageResult;
+import io.fouad.jtb.core.beans.CallbackQuery;
+import io.fouad.jtb.core.beans.Chat;
+import io.fouad.jtb.core.beans.ChatIdentifier;
+import io.fouad.jtb.core.beans.ChatMember;
+import io.fouad.jtb.core.beans.ChosenInlineResult;
+import io.fouad.jtb.core.beans.InlineKeyboardMarkup;
+import io.fouad.jtb.core.beans.InlineQuery;
+import io.fouad.jtb.core.beans.InlineQueryResult;
+import io.fouad.jtb.core.beans.MediaIdentifier;
+import io.fouad.jtb.core.beans.Message;
+import io.fouad.jtb.core.beans.ReplyMarkup;
+import io.fouad.jtb.core.beans.TelegramFile;
+import io.fouad.jtb.core.beans.TelegramResult;
+import io.fouad.jtb.core.beans.Update;
+import io.fouad.jtb.core.beans.User;
+import io.fouad.jtb.core.beans.UserProfilePhotos;
+import io.fouad.jtb.core.enums.BotState;
+import io.fouad.jtb.core.enums.ChatAction;
+import io.fouad.jtb.core.enums.ParseMode;
+import io.fouad.jtb.core.exceptions.NegativeResponseException;
+import io.fouad.jtb.core.utils.HttpClient;
+import io.fouad.jtb.core.utils.HttpClient.FileField;
+import io.fouad.jtb.core.utils.HttpClient.HttpResponse;
+import io.fouad.jtb.core.utils.HttpClient.NameValueParameter;
+import io.fouad.jtb.core.utils.JsonUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,12 +70,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class JTelegramBot implements TelegramBotApi
 {
+	final Log log = LogFactory.getLog(this.getClass());
 	private final String botName;
 	private final String apiToken;
 	private final UpdateHandler updateHandler;
 	
 	// an atomic flag to indicate the current running state of the bot
-	private AtomicReference<BotState> botState = new AtomicReference<BotState>(BotState.IDLE);
+	private AtomicReference<BotState> botState = new AtomicReference<>(BotState.IDLE);
 	
 	/**
 	 * Creates an instance of Telegram bot.
@@ -128,14 +152,7 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	public void startAsync(final TelegramBotConfig telegramBotConfig) throws IllegalStateException
 	{
-		new Thread(new Runnable()
-		{
-			@Override
-			public void run()
-			{
-				startPolling(telegramBotConfig);
-			}
-		}).start();
+		new Thread(() -> startPolling(telegramBotConfig)).start();
 	}
 	
 	/**
@@ -145,14 +162,13 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	private void startPolling(TelegramBotConfig telegramBotConfig)
 	{
-		// create a thread pool
-		ExecutorService executorService = Executors.newFixedThreadPool(telegramBotConfig.getWorkerThreads());
-		
+		HttpClient.init(telegramBotConfig);
+
 		Integer offset = null;
 		int timeout = telegramBotConfig.getPollingTimeoutInSeconds();
 		
 		botState.set(BotState.RUNNING);
-		System.out.println("JTelegramBot (" + botName + ") starts in \"Polling\" mode.");
+		log.info("JTelegramBot (" + botName + ") starts in \"Polling\" mode.");
 		
 		while(botState.get() == BotState.RUNNING)
 		{
@@ -164,8 +180,7 @@ public class JTelegramBot implements TelegramBotApi
 				{
 					final Update newUpdate = newUpdates.get(i);
 					
-					executorService.submit(new Runnable()
-					{
+					telegramBotConfig.getExecutorService().submit(new Runnable() {
 						@Override
 						public void run()
 						{
@@ -226,11 +241,11 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	public TelegramResult<String> registerWebhook(String listenUrl, File certificateFile) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
-		List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
+		List<NameValueParameter<String, FileField>> files = new ArrayList<>();
 		
-		formFields.add(new NameValueParameter<String, String>("url", listenUrl));
-		files.add(new NameValueParameter<String, FileField>("certificate", new FileField(certificateFile)));
+		formFields.add(new NameValueParameter<>("url", listenUrl));
+		files.add(new NameValueParameter<>("certificate", new FileField(certificateFile)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/setWebhook", formFields, files);
 		TelegramResult<String> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<String>>(){});
@@ -250,8 +265,8 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	public TelegramResult<String> unregisterWebhook() throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
-		List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
+		List<NameValueParameter<String, FileField>> files = new ArrayList<>();
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/setWebhook", formFields, files);
 		TelegramResult<String> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<String>>(){});
@@ -279,17 +294,17 @@ public class JTelegramBot implements TelegramBotApi
 	 */
 	private List<Update> getNewUpdates(Integer offset, int timeout) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
-		if(offset != null) formFields.add(new NameValueParameter<String, String>("offset", String.valueOf(offset)));
-		formFields.add(new NameValueParameter<String, String>("timeout", String.valueOf(timeout)));
+		if(offset != null) formFields.add(new NameValueParameter<>("offset", String.valueOf(offset)));
+		formFields.add(new NameValueParameter<>("timeout", String.valueOf(timeout)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getUpdates", formFields);
 		TelegramResult<Update[]> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Update[]>>(){});
 		
 		if(!telegramResult.isOk()) throw new NegativeResponseException(response.getHttpStatusCode(), telegramResult);
 		
-		return new ArrayList<Update>(Arrays.asList(telegramResult.getResult()));
+		return Arrays.asList(telegramResult.getResult());
 	}
 	
 	/*============ API METHODS IMPLEMENTATION ============*/
@@ -297,7 +312,7 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public User getMe() throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getMe", formFields);
 		TelegramResult<User> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<User>>(){});
@@ -312,19 +327,19 @@ public class JTelegramBot implements TelegramBotApi
 	              Boolean disableLinkPreviews, Boolean silentMessage, Integer replyToMessageId, ReplyMarkup replyMarkup)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("text", text));
-		if(parseMode != null) formFields.add(new NameValueParameter<String, String>("parse_mode", String.valueOf(parseMode)));
-		if(disableLinkPreviews != null) formFields.add(new NameValueParameter<String, String>("disable_web_page_preview", String.valueOf(disableLinkPreviews)));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		formFields.add(new NameValueParameter<>("text", text));
+		if(parseMode != null) formFields.add(new NameValueParameter<>("parse_mode", String.valueOf(parseMode)));
+		if(disableLinkPreviews != null) formFields.add(new NameValueParameter<>("disable_web_page_preview", String.valueOf(disableLinkPreviews)));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendMessage", formFields);
 		
@@ -340,20 +355,20 @@ public class JTelegramBot implements TelegramBotApi
 	                              Boolean silentMessage, Integer messageId) throws IOException,
 			NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
 		username = sourceChatIdentifier.getUsername();
 		id = sourceChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("from_chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("from_chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("from_chat_id", username));
+		else formFields.add(new NameValueParameter<>("from_chat_id", String.valueOf(id)));
 		
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		formFields.add(new NameValueParameter<String, String>("message_id", String.valueOf(messageId)));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		formFields.add(new NameValueParameter<>("message_id", String.valueOf(messageId)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/forwardMessage", formFields);
 		TelegramResult<Message> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Message>>(){});
@@ -370,25 +385,25 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("photo", mediaId));
-		if(photoCaption != null) formFields.add(new NameValueParameter<String, String>("caption", photoCaption));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("photo", mediaId));
+		if(photoCaption != null) formFields.add(new NameValueParameter<>("caption", photoCaption));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("photo", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("photo", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendPhoto", formFields, files);
 		}
@@ -411,27 +426,27 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("audio", mediaId));
-		if(duration != null) formFields.add(new NameValueParameter<String, String>("duration", String.valueOf(duration)));
-		if(performer != null) formFields.add(new NameValueParameter<String, String>("performer", performer));
-		if(trackTitle != null) formFields.add(new NameValueParameter<String, String>("title", trackTitle));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("audio", mediaId));
+		if(duration != null) formFields.add(new NameValueParameter<>("duration", String.valueOf(duration)));
+		if(performer != null) formFields.add(new NameValueParameter<>("performer", performer));
+		if(trackTitle != null) formFields.add(new NameValueParameter<>("title", trackTitle));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("audio", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("audio", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendAudio", formFields, files);
 		}
@@ -454,25 +469,25 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("document", mediaId));
-		if(documentCaption != null) formFields.add(new NameValueParameter<String, String>("caption", String.valueOf(documentCaption)));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("document", mediaId));
+		if(documentCaption != null) formFields.add(new NameValueParameter<>("caption", String.valueOf(documentCaption)));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("document", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("document", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendDocument", formFields, files);
 		}
@@ -495,24 +510,24 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("sticker", mediaId));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("sticker", mediaId));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("sticker", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("sticker", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendSticker", formFields, files);
 		}
@@ -536,28 +551,28 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("video", mediaId));
-		if(duration != null) formFields.add(new NameValueParameter<String, String>("duration", String.valueOf(duration)));
-		if(width != null) formFields.add(new NameValueParameter<String, String>("width", String.valueOf(width)));
-		if(height != null) formFields.add(new NameValueParameter<String, String>("height", String.valueOf(height)));
-		if(videoCaption != null) formFields.add(new NameValueParameter<String, String>("caption", videoCaption));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("video", mediaId));
+		if(duration != null) formFields.add(new NameValueParameter<>("duration", String.valueOf(duration)));
+		if(width != null) formFields.add(new NameValueParameter<>("width", String.valueOf(width)));
+		if(height != null) formFields.add(new NameValueParameter<>("height", String.valueOf(height)));
+		if(videoCaption != null) formFields.add(new NameValueParameter<>("caption", videoCaption));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("video", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("video", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendVideo", formFields, files);
 		}
@@ -580,25 +595,25 @@ public class JTelegramBot implements TelegramBotApi
 	{
 		String mediaId = mediaIdentifier.getMediaId();
 		
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		if(mediaId != null) formFields.add(new NameValueParameter<String, String>("voice", mediaId));
-		if(duration != null) formFields.add(new NameValueParameter<String, String>("duration", String.valueOf(duration)));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		if(mediaId != null) formFields.add(new NameValueParameter<>("voice", mediaId));
+		if(duration != null) formFields.add(new NameValueParameter<>("duration", String.valueOf(duration)));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response;
 		
 		if(mediaId == null)
 		{
-			List<NameValueParameter<String, FileField>> files = new ArrayList<NameValueParameter<String, FileField>>();
-			files.add(new NameValueParameter<String, FileField>("voice", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
+			List<NameValueParameter<String, FileField>> files = new ArrayList<>();
+			files.add(new NameValueParameter<>("voice", new FileField(mediaIdentifier.getFileName(), mediaIdentifier.getMediaInputStream())));
 			
 			response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendVoice", formFields, files);
 		}
@@ -619,18 +634,18 @@ public class JTelegramBot implements TelegramBotApi
 	                            Boolean silentMessage, Integer replyToMessageId, ReplyMarkup replyMarkup)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("latitude", String.valueOf(latitude)));
-		formFields.add(new NameValueParameter<String, String>("longitude", String.valueOf(longitude)));
-		if(silentMessage != null) formFields.add(new NameValueParameter<String, String>("disable_notification", String.valueOf(silentMessage)));
-		if(replyToMessageId != null) formFields.add(new NameValueParameter<String, String>("reply_to_message_id", String.valueOf(replyToMessageId)));
-		if(replyMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(replyMarkup)));
+		formFields.add(new NameValueParameter<>("latitude", String.valueOf(latitude)));
+		formFields.add(new NameValueParameter<>("longitude", String.valueOf(longitude)));
+		if(silentMessage != null) formFields.add(new NameValueParameter<>("disable_notification", String.valueOf(silentMessage)));
+		if(replyToMessageId != null) formFields.add(new NameValueParameter<>("reply_to_message_id", String.valueOf(replyToMessageId)));
+		if(replyMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(replyMarkup)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendLocation", formFields);
 		TelegramResult<Message> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Message>>(){});
@@ -660,14 +675,14 @@ public class JTelegramBot implements TelegramBotApi
 	public void sendChatAction(ChatIdentifier targetChatIdentifier, ChatAction action) throws IOException,
 			NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("action", String.valueOf(action)));
+		formFields.add(new NameValueParameter<>("action", String.valueOf(action)));
 		
 		HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/sendChatAction", formFields);
 	}
@@ -676,11 +691,11 @@ public class JTelegramBot implements TelegramBotApi
 	public UserProfilePhotos getUserProfilePhotos(int userId, Integer offset, Integer limit) throws IOException,
 			NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
-		formFields.add(new NameValueParameter<String, String>("user_id", String.valueOf(userId)));
-		if(offset != null) formFields.add(new NameValueParameter<String, String>("offset", String.valueOf(offset)));
-		if(limit != null) formFields.add(new NameValueParameter<String, String>("limit", String.valueOf(limit)));
+		formFields.add(new NameValueParameter<>("user_id", String.valueOf(userId)));
+		if(offset != null) formFields.add(new NameValueParameter<>("offset", String.valueOf(offset)));
+		if(limit != null) formFields.add(new NameValueParameter<>("limit", String.valueOf(limit)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getUserProfilePhotos", formFields);
 		TelegramResult<UserProfilePhotos> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<UserProfilePhotos>>(){});
@@ -693,9 +708,9 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public TelegramFile getFile(String fileId) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
-		formFields.add(new NameValueParameter<String, String>("file_id", fileId));
+		formFields.add(new NameValueParameter<>("file_id", fileId));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getFile", formFields);
 		TelegramResult<TelegramFile> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<TelegramFile>>(){});
@@ -709,14 +724,14 @@ public class JTelegramBot implements TelegramBotApi
 	public boolean kickChatMember(ChatIdentifier targetChatIdentifier, int userId)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("user_id", String.valueOf(userId)));
+		formFields.add(new NameValueParameter<>("user_id", String.valueOf(userId)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/kickChatMember", formFields);
 		TelegramResult<Boolean> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Boolean>>(){});
@@ -729,12 +744,12 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public boolean leaveChat(ChatIdentifier targetChatIdentifier) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/leaveChat", formFields);
 		TelegramResult<Boolean> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Boolean>>(){});
@@ -748,14 +763,14 @@ public class JTelegramBot implements TelegramBotApi
 	public boolean unbanChatMember(ChatIdentifier targetChatIdentifier, int userId)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("user_id", String.valueOf(userId)));
+		formFields.add(new NameValueParameter<>("user_id", String.valueOf(userId)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/unbanChatMember", formFields);
 		TelegramResult<Boolean> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Boolean>>(){});
@@ -768,12 +783,12 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public Chat getChat(ChatIdentifier targetChatIdentifier) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getChat", formFields);
 		TelegramResult<Chat> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Chat>>(){});
@@ -786,12 +801,12 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public ChatMember[] getChatAdministrators(ChatIdentifier targetChatIdentifier) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getChatAdministrators", formFields);
 		TelegramResult<ChatMember[]> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<ChatMember[]>>(){});
@@ -804,12 +819,12 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public int getChatMembersCount(ChatIdentifier targetChatIdentifier) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getChatMembersCount", formFields);
 		TelegramResult<Integer> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Integer>>(){});
@@ -822,14 +837,14 @@ public class JTelegramBot implements TelegramBotApi
 	@Override
 	public ChatMember getChatMember(ChatIdentifier targetChatIdentifier, int userId) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		String username = targetChatIdentifier.getUsername();
 		Long id = targetChatIdentifier.getId();
-		if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-		else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+		if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+		else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		
-		formFields.add(new NameValueParameter<String, String>("user_id", String.valueOf(userId)));
+		formFields.add(new NameValueParameter<>("user_id", String.valueOf(userId)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/getChatMember", formFields);
 		TelegramResult<ChatMember> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<ChatMember>>(){});
@@ -843,11 +858,11 @@ public class JTelegramBot implements TelegramBotApi
 	public boolean answerCallbackQuery(String callbackQueryId, String text, Boolean showAlert)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
-		formFields.add(new NameValueParameter<String, String>("callback_query_id", callbackQueryId));
-		if(text != null) formFields.add(new NameValueParameter<String, String>("text", text));
-		if(showAlert != null) formFields.add(new NameValueParameter<String, String>("show_alert", String.valueOf(showAlert)));
+		formFields.add(new NameValueParameter<>("callback_query_id", callbackQueryId));
+		if(text != null) formFields.add(new NameValueParameter<>("text", text));
+		if(showAlert != null) formFields.add(new NameValueParameter<>("show_alert", String.valueOf(showAlert)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/answerCallbackQuery", formFields);
 		TelegramResult<Boolean> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Boolean>>(){});
@@ -863,50 +878,50 @@ public class JTelegramBot implements TelegramBotApi
 	                               InlineKeyboardMarkup inlineKeyboardMarkup)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		if(targetChatIdentifier != null)
 		{
 			String username = targetChatIdentifier.getUsername();
 			Long id = targetChatIdentifier.getId();
-			if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-			else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+			if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+			else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		}
 		
-		if(messageId != null) formFields.add(new NameValueParameter<String, String>("message_id", String.valueOf(messageId)));
-		if(inlineMessageId != null) formFields.add(new NameValueParameter<String, String>("inline_message_id", inlineMessageId));
-		formFields.add(new NameValueParameter<String, String>("text", String.valueOf(text)));
-		if(parseMode != null) formFields.add(new NameValueParameter<String, String>("parse_mode", String.valueOf(parseMode)));
-		if(disableLinkPreviews != null) formFields.add(new NameValueParameter<String, String>("disable_web_page_preview", String.valueOf(disableLinkPreviews)));
-		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
+		if(messageId != null) formFields.add(new NameValueParameter<>("message_id", String.valueOf(messageId)));
+		if(inlineMessageId != null) formFields.add(new NameValueParameter<>("inline_message_id", inlineMessageId));
+		formFields.add(new NameValueParameter<>("text", String.valueOf(text)));
+		if(parseMode != null) formFields.add(new NameValueParameter<>("parse_mode", String.valueOf(parseMode)));
+		if(disableLinkPreviews != null) formFields.add(new NameValueParameter<>("disable_web_page_preview", String.valueOf(disableLinkPreviews)));
+		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/editMessageText", formFields);
-		TelegramResult<String> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<String>>(){});
+		TelegramResult<Message> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Message>>(){});
 		
 		if(!telegramResult.isOk()) throw new NegativeResponseException(response.getHttpStatusCode(), telegramResult);
 		
 		return new BooleanOrMessageResult(telegramResult.getResult());
 	}
-	
+
 	@Override
 	public BooleanOrMessageResult editMessageCaption(ChatIdentifier targetChatIdentifier, Integer messageId, String inlineMessageId,
 	                                  String caption, InlineKeyboardMarkup inlineKeyboardMarkup)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		if(targetChatIdentifier != null)
 		{
 			String username = targetChatIdentifier.getUsername();
 			Long id = targetChatIdentifier.getId();
-			if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-			else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+			if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+			else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		}
 		
-		if(messageId != null) formFields.add(new NameValueParameter<String, String>("message_id", String.valueOf(messageId)));
-		if(inlineMessageId != null) formFields.add(new NameValueParameter<String, String>("inline_message_id", inlineMessageId));
-		if(caption != null) formFields.add(new NameValueParameter<String, String>("caption", caption));
-		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
+		if(messageId != null) formFields.add(new NameValueParameter<>("message_id", String.valueOf(messageId)));
+		if(inlineMessageId != null) formFields.add(new NameValueParameter<>("inline_message_id", inlineMessageId));
+		if(caption != null) formFields.add(new NameValueParameter<>("caption", caption));
+		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/editMessageCaption", formFields);
 		TelegramResult<String> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<String>>(){});
@@ -921,22 +936,22 @@ public class JTelegramBot implements TelegramBotApi
 	                                      String inlineMessageId, InlineKeyboardMarkup inlineKeyboardMarkup)
 			throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
 		if(targetChatIdentifier != null)
 		{
 			String username = targetChatIdentifier.getUsername();
 			Long id = targetChatIdentifier.getId();
-			if(username != null) formFields.add(new NameValueParameter<String, String>("chat_id", username));
-			else formFields.add(new NameValueParameter<String, String>("chat_id", String.valueOf(id)));
+			if(username != null) formFields.add(new NameValueParameter<>("chat_id", username));
+			else formFields.add(new NameValueParameter<>("chat_id", String.valueOf(id)));
 		}
 		
-		if(messageId != null) formFields.add(new NameValueParameter<String, String>("message_id", String.valueOf(messageId)));
-		if(inlineMessageId != null) formFields.add(new NameValueParameter<String, String>("inline_message_id", inlineMessageId));
-		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<String, String>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
+		if(messageId != null) formFields.add(new NameValueParameter<>("message_id", String.valueOf(messageId)));
+		if(inlineMessageId != null) formFields.add(new NameValueParameter<>("inline_message_id", inlineMessageId));
+		if(inlineKeyboardMarkup != null) formFields.add(new NameValueParameter<>("reply_markup", JsonUtils.toJson(inlineKeyboardMarkup)));
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/editMessageReplyMarkup", formFields);
-		TelegramResult<String> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<String>>(){});
+		TelegramResult<Message> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Message>>(){});
 		
 		if(!telegramResult.isOk()) throw new NegativeResponseException(response.getHttpStatusCode(), telegramResult);
 		
@@ -948,17 +963,17 @@ public class JTelegramBot implements TelegramBotApi
 	                                 Boolean isPersonal, String nextOffset, String switchPmText,
 	                                 String switchPmParameter) throws IOException, NegativeResponseException
 	{
-		List<NameValueParameter<String, String>> formFields = new ArrayList<NameValueParameter<String, String>>();
+		List<NameValueParameter<String, String>> formFields = new ArrayList<>();
 		
-		formFields.add(new NameValueParameter<String, String>("inline_query_id", String.valueOf(inlineQueryId)));
-		formFields.add(new NameValueParameter<String, String>("results", JsonUtils.toJson(results)));
-		if(cacheTime != null) formFields.add(new NameValueParameter<String, String>("cache_time", String.valueOf(cacheTime)));
-		if(isPersonal != null) formFields.add(new NameValueParameter<String, String>("is_personal", String.valueOf(isPersonal)));
-		if(nextOffset != null) formFields.add(new NameValueParameter<String, String>("next_offset", nextOffset));
-		if(switchPmText != null) formFields.add(new NameValueParameter<String, String>("switch_pm_text", switchPmText));
-		if(switchPmParameter != null) formFields.add(new NameValueParameter<String, String>("switch_pm_parameter", switchPmParameter));
+		formFields.add(new NameValueParameter<>("inline_query_id", String.valueOf(inlineQueryId)));
+		formFields.add(new NameValueParameter<>("results", JsonUtils.toJson(results)));
+		if(cacheTime != null) formFields.add(new NameValueParameter<>("cache_time", String.valueOf(cacheTime)));
+		if(isPersonal != null) formFields.add(new NameValueParameter<>("is_personal", String.valueOf(isPersonal)));
+		if(nextOffset != null) formFields.add(new NameValueParameter<>("next_offset", nextOffset));
+		if(switchPmText != null) formFields.add(new NameValueParameter<>("switch_pm_text", switchPmText));
+		if(switchPmParameter != null) formFields.add(new NameValueParameter<>("switch_pm_parameter", switchPmParameter));
 		
-		System.out.println(formFields);
+//		System.out.println(formFields);
 		
 		HttpResponse response = HttpClient.sendHttpPost(API_URL_PREFIX + apiToken + "/answerInlineQuery", formFields);
 		TelegramResult<Boolean> telegramResult = JsonUtils.toJavaObject(response.getResponseBody(), new TypeReference<TelegramResult<Boolean>>(){});

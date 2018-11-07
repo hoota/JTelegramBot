@@ -54,14 +54,14 @@ public class MessageEntity
 	private int length;
 	
 	/**
-	 * Optional. For “text_link” only, url that will be opened after user taps on
+	 * Optional. For "text_link" only, url that will be opened after user taps on
 	 * the text.
 	 */
 	@JsonProperty("url")
 	private String url;
 	
 	/**
-	 * Optional. For “text_mention” only, the mentioned user.
+	 * Optional. For "text_mention" only, the mentioned user.
 	 */
 	@JsonProperty("user")
 	private User user;

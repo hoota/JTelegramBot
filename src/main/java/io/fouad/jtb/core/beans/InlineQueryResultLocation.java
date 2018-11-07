@@ -25,7 +25,6 @@
 package io.fouad.jtb.core.beans;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.fouad.jtb.core.enums.ResultDocumentMimeType;
 
 /**
  * Represents a location on a map. By default, the location will be sent

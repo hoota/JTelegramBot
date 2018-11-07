@@ -24,7 +24,14 @@
 
 package io.fouad.jtb.core.utils;
 
+import io.fouad.jtb.core.TelegramBotConfig;
 import io.fouad.jtb.core.exceptions.NegativeResponseException;
+import okhttp3.ConnectionPool;
+import okhttp3.Dispatcher;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -41,14 +48,28 @@ import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Utility class to handle HTTP client job. It sends HTTP POST requests and downloads a file from the internet as well.
  */
 public class HttpClient
 {
+	public static OkHttpClient okHttpClient;
+
+	public static void init(TelegramBotConfig telegramBotConfig) {
+		int timeout = telegramBotConfig.getPollingTimeoutInSeconds();
+		okHttpClient = new OkHttpClient.Builder()
+			.dispatcher(new Dispatcher(telegramBotConfig.getExecutorService()))
+			.connectionPool(new ConnectionPool(timeout * 2, timeout * 10, TimeUnit.SECONDS))
+			.connectTimeout(timeout * 2, TimeUnit.SECONDS)
+			.readTimeout(timeout * 2, TimeUnit.SECONDS)
+			.writeTimeout(timeout * 2, TimeUnit.SECONDS)
+			.build();
+	}
+
+
 	/**
 	 * Represents a pair of key/value to be sent as normal parameter within HTTP POST body. 
 	 */
@@ -292,30 +313,22 @@ public class HttpClient
 	public static HttpResponse sendHttpPost(String requestUrl, List<NameValueParameter<String, String>> formFields)
 			throws IOException, NegativeResponseException
 	{
-		URL url = new URL(requestUrl);
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-		connection.setRequestMethod("POST");
-		connection.setDoOutput(true);
-		connection.setUseCaches(false);
-		connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
-		connection.setRequestProperty("User-Agent", "Java Agent");
-		OutputStream outputStream = connection.getOutputStream();
-		PrintWriter writer = new PrintWriter(new OutputStreamWriter(outputStream, "UTF-8"), true);
-		
-		boolean prefixAnd = false;
-		for(NameValueParameter<String, String> parameter : formFields)
-		{
-			if(prefixAnd) writer.append("&");
-			else prefixAnd = true;
-			
-			writer.append(URLEncoder.encode(parameter.getName(), "UTF-8"))
-			      .append("=")
-			      .append(URLEncoder.encode(parameter.getValue(), "UTF-8"));
+
+		FormBody.Builder formBodyBuilder = new FormBody.Builder();
+
+		for(NameValueParameter<String, String> field: formFields) {
+			formBodyBuilder.add( field.name, field.getValue() );
 		}
-		
-		writer.close();
-		
-		return readResponse(connection);
+
+		Request request = new Request.Builder()
+			.url( requestUrl )
+			.post( formBodyBuilder.build() )
+			.build();
+
+
+		try(Response response = okHttpClient.newCall(request).execute()) {
+			return readResponse(response);
+		}
 	}
 	
 	/**
@@ -360,7 +373,18 @@ public class HttpClient
 			throw new NegativeResponseException(status, response);
 		}
 	}
-	
+
+
+	private static HttpResponse readResponse(Response response) throws IOException, NegativeResponseException
+	{
+		int status = response.code();
+		if(status >= HttpURLConnection.HTTP_OK && status < HttpURLConnection.HTTP_BAD_REQUEST) {
+			return new HttpResponse(status, response.body().string());
+		} else {
+			throw new NegativeResponseException(status, response.body().string());
+		}
+	}
+
 	/**
 	 * Download a file from the internet.
 	 * 

@@ -55,8 +55,8 @@ public class InlineQueryResultDocument extends InlineQueryResult
 	private String documentUrl;
 	
 	/**
-	 * Mime type of the content of the file, either “application/pdf”
-	 * or “application/zip”.
+	 * Mime type of the content of the file, either "application/pdf"
+	 * or "application/zip".
 	 */
 	@JsonProperty("mime_type")
 	private ResultDocumentMimeType mimeType;

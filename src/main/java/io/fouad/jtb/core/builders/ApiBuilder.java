@@ -24,8 +24,19 @@
 
 package io.fouad.jtb.core.builders;
 
-import io.fouad.jtb.core.*;
-import io.fouad.jtb.core.beans.*;
+import io.fouad.jtb.core.TelegramBotApi;
+import io.fouad.jtb.core.beans.BooleanOrMessageResult;
+import io.fouad.jtb.core.beans.Chat;
+import io.fouad.jtb.core.beans.ChatIdentifier;
+import io.fouad.jtb.core.beans.ChatMember;
+import io.fouad.jtb.core.beans.InlineKeyboardMarkup;
+import io.fouad.jtb.core.beans.InlineQueryResult;
+import io.fouad.jtb.core.beans.MediaIdentifier;
+import io.fouad.jtb.core.beans.Message;
+import io.fouad.jtb.core.beans.ReplyMarkup;
+import io.fouad.jtb.core.beans.TelegramFile;
+import io.fouad.jtb.core.beans.User;
+import io.fouad.jtb.core.beans.UserProfilePhotos;
 import io.fouad.jtb.core.enums.ChatAction;
 import io.fouad.jtb.core.enums.ParseMode;
 import io.fouad.jtb.core.exceptions.NegativeResponseException;

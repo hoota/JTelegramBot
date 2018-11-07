@@ -39,7 +39,7 @@ public class ChatMember
 	private User user;
 	
 	/**
-	 * The member's status in the chat. Can be “creator”, “administrator”, “member”, “left” or “kicked”.
+	 * The member's status in the chat. Can be "creator", "administrator", "member", "left" or "kicked".
 	 */
 	@JsonProperty("status")
 	private ChatMemberStatus status;

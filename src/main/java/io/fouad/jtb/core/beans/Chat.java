@@ -42,7 +42,7 @@ public class Chat
 	private long id;
 	
 	/**
-	 * Type of chat, can be either “private”, “group”, “supergroup” or “channel”.
+	 * Type of chat, can be either "private", "group", "supergroup" or "channel".
 	 */
 	@JsonProperty("type")
 	private ChatType type;

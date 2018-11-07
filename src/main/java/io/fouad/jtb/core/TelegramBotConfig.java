@@ -24,28 +24,30 @@
 
 package io.fouad.jtb.core;
 
+import java.util.concurrent.ExecutorService;
+
 /**
  * Several configurations that are applied on <code>JTelegramBot</code> instances.
  */
 public class TelegramBotConfig
 {
 	// default values
-	public static final int WORKER_THREADS = 5;
 	public static final int POLLING_TIMEOUT_IN_SECONDS = 120;
-	
-	private int workerThreads = WORKER_THREADS;
+
+	private final ExecutorService executorService;
 	private int pollingTimeoutInSeconds = POLLING_TIMEOUT_IN_SECONDS;
 	
-	public TelegramBotConfig(int workerThreads, int pollingTimeoutInSeconds)
+	public TelegramBotConfig(ExecutorService executorService, int pollingTimeoutInSeconds)
 	{
-		this.workerThreads = workerThreads;
+		this.executorService = executorService;
 		this.pollingTimeoutInSeconds = pollingTimeoutInSeconds;
 	}
-	
-	public int getWorkerThreads(){return workerThreads;}
-	public void setWorkerThreads(int workerThreads){this.workerThreads = workerThreads;}
-	
-	public int getPollingTimeoutInSeconds(){return pollingTimeoutInSeconds;}
+
+    public ExecutorService getExecutorService() {
+        return executorService;
+    }
+
+    public int getPollingTimeoutInSeconds(){return pollingTimeoutInSeconds;}
 	public void setPollingTimeoutInSeconds(int pollingTimeoutInSeconds){this.pollingTimeoutInSeconds = pollingTimeoutInSeconds;}
 	
 	@Override
@@ -56,7 +58,7 @@ public class TelegramBotConfig
 		
 		TelegramBotConfig that = (TelegramBotConfig) o;
 		
-		if(workerThreads != that.workerThreads) return false;
+		if(!executorService.equals(that.executorService)) return false;
 		return pollingTimeoutInSeconds == that.pollingTimeoutInSeconds;
 		
 	}
@@ -64,7 +66,7 @@ public class TelegramBotConfig
 	@Override
 	public int hashCode()
 	{
-		int result = workerThreads;
+		int result = executorService.hashCode();
 		result = 31 * result + pollingTimeoutInSeconds;
 		return result;
 	}
@@ -73,21 +75,20 @@ public class TelegramBotConfig
 	public String toString()
 	{
 		return "TelegramBotConfig{" +
-				"workerThreads=" + workerThreads +
 				", pollingTimeoutInSeconds=" + pollingTimeoutInSeconds +
 				'}';
 	}
 	
 	public static class TelegramBotConfigBuilder
 	{
-		private int workerThreads = WORKER_THREADS;
+		private ExecutorService executorService;
 		private int pollingTimeoutInSeconds = POLLING_TIMEOUT_IN_SECONDS;
 		
 		public TelegramBotConfigBuilder(){}
 		
-		public TelegramBotConfigBuilder workerThreads(int threadsCount)
+		public TelegramBotConfigBuilder executorService(ExecutorService executorService)
 		{
-			this.workerThreads = threadsCount;
+			this.executorService = executorService;
 			return this;
 		}
 		
@@ -99,7 +100,7 @@ public class TelegramBotConfig
 		
 		public TelegramBotConfig build()
 		{
-			return new TelegramBotConfig(workerThreads, pollingTimeoutInSeconds);
+			return new TelegramBotConfig(executorService, pollingTimeoutInSeconds);
 		}
 	}
 }
