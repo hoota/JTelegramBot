@@ -9,23 +9,24 @@ JTelegramBot is a Java library that wraps Telegram Bot API with a simpler API us
 TelegramBot library supports full functionality of Telegram Bot API 2.1 and it consists of 3 modules:
 
  - **Core (required):** This module contains the minimum required classes to use the library.
- - **Builders (recommended):** An optional wrapper that makes Telegram Bot API much easier to use.
- - **Webhook (optional):** An optional wrapper that enables "Webhook" mode.
+ - **Builders (this fork combined with Core):** An optional wrapper that makes Telegram Bot API much easier to use.
+ - **Webhook (this fork does not support it):** An optional wrapper that enables "Webhook" mode.
 
-# Dependencies
 
- - Java 6+
- - [commons-logging-1.2.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/JTelegramBot%20Core/libs/commons-logging-1.2.jar)
- - [jackson-annotations-2.7.2.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/JTelegramBot%20Core/libs/jackson-annotations-2.7.2.jar)
- - [jackson-core-2.7.2.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/JTelegramBot%20Core/libs/jackson-core-2.7.2.jar)
- - [jackson-databind-2.7.2.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/JTelegramBot%20Core/libs/jackson-databind-2.7.2.jar)
- - [netty-all-4.0.34.Final.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/JTelegramBot%20Webhook/libs/netty-all-4.0.34.Final.jar) (only required if you use Webhook module)
- 
 # Installation Instructions
 
-- [JTelegramBot-Core-v1.1.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/jars/JTelegramBot-Core-v1.1.jar)
-- [JTelegramBot-Builders-v1.1.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/jars/JTelegramBot-Builders-v1.1.jar)
-- [JTelegramBot-Webhook-v1.0.jar](https://github.com/Eng-Fouad/JTelegramBot/raw/master/jars/JTelegramBot-Webhook-v1.0.jar)
+        <repositories>
+            <repository>
+                <id>jitpack.io</id>
+                <url>https://jitpack.io</url>
+            </repository>
+        </repositories>
+        ...
+        <dependency>
+            <groupId>com.github.hoota</groupId>
+            <artifactId>JTelegramBot</artifactId>
+            <version>1.1.0</version>
+        </dependency>
 
 Other options will be added later.
 
