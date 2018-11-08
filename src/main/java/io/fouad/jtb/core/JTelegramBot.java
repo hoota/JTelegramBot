@@ -57,6 +57,7 @@ import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -171,33 +172,34 @@ public class JTelegramBot implements TelegramBotApi
 		botState.set(BotState.RUNNING);
 		log.info("JTelegramBot (" + botName + ") starts in \"Polling\" mode.");
 		
-		while(botState.get() == BotState.RUNNING)
-		{
-			try
-			{
+		while(botState.get() == BotState.RUNNING) {
+			try {
 				List<Update> newUpdates = getNewUpdates(offset, timeout);
-				
-				for(int i = 0; i < newUpdates.size(); i++)
-				{
+
+				for (int i = 0; i < newUpdates.size(); i++) {
 					final Update newUpdate = newUpdates.get(i);
-					
+
 					telegramBotConfig.getExecutorService().submit(new Runnable() {
 						@Override
-						public void run()
-						{
+						public void run() {
 							onUpdateReceived(newUpdate);
 						}
 					});
-					
-					if(i == newUpdates.size() - 1) // if last item, calculate the offset
+
+					if (i == newUpdates.size() - 1) // if last item, calculate the offset
 					{
 						offset = newUpdate.getUpdateId() + 1;
 					}
 				}
-			}
-			catch(Exception e)
-			{
-				if(updateHandler != null) updateHandler.onGetUpdatesFailure(e);
+
+			}catch (SocketTimeoutException e) {
+				if(!"Read timed out".equals(e.getMessage()) && updateHandler != null) {
+					updateHandler.onGetUpdatesFailure(e);
+				}
+			} catch(Exception e) {
+				if(updateHandler != null) {
+					updateHandler.onGetUpdatesFailure(e);
+				}
 			}
 		}
 	}
