@@ -62,7 +62,7 @@ public class HttpClient
 		int timeout = telegramBotConfig.getPollingTimeoutInSeconds();
 		okHttpClient = new OkHttpClient.Builder()
 			.dispatcher(new Dispatcher(telegramBotConfig.getExecutorService()))
-			.connectionPool(new ConnectionPool(timeout * 2, timeout * 10, TimeUnit.SECONDS))
+			.connectionPool(new ConnectionPool(10, 30, TimeUnit.SECONDS))
 			.connectTimeout(timeout * 2, TimeUnit.SECONDS)
 			.readTimeout(timeout * 2, TimeUnit.SECONDS)
 			.writeTimeout(timeout * 2, TimeUnit.SECONDS)
